@@ -10,8 +10,46 @@ let pendingOps=[];try{pendingOps=JSON.parse(localStorage.getItem(opsKey)||'[]');
 function persistOps(){localStorage.setItem(opsKey,JSON.stringify(pendingOps));if(pendingOps.length)localStorage.setItem('watering-dirty','1');else localStorage.removeItem('watering-dirty')}
 function save(op){try{localStorage.setItem(key,JSON.stringify(data));if(op){pendingOps.push(op);persistOps()}scheduleSync()}catch(e){console.warn('保存できません',e)}};
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};const days=s=>Math.floor((new Date(today()+'T12:00:00')-new Date(s+'T12:00:00'))/86400000);const fmt=s=>{let [y,m,d]=s.split('-');return `${Number(m)}/${Number(d)}`};const dlg=document.getElementById('dialog');function modal(message,buttons){document.getElementById('modalText').textContent=message;const a=document.getElementById('modalActions');a.replaceChildren();buttons.forEach(([label,fn])=>{let b=document.createElement('button');b.textContent=label;b.onclick=()=>{dlg.hidden=true;if(fn)fn()};a.append(b)});dlg.hidden=false}
+function showDatePicker(plant,entry){
+  const oldDate=entry.date;
+  const area=document.getElementById('modalText');
+  area.replaceChildren();
+  const heading=document.createElement('div');
+  heading.textContent=`${plant.name}：日付を修正`;
+  heading.style.marginBottom='12px';
+  const input=document.createElement('input');
+  input.type='date';
+  input.value=oldDate;
+  input.required=true;
+  input.setAttribute('aria-label','水やりの日付');
+  input.style.width='100%';
+  area.append(heading,input);
+  const actions=document.getElementById('modalActions');
+  actions.replaceChildren();
+  const cancel=document.createElement('button');
+  cancel.textContent='キャンセル';
+  cancel.onclick=()=>{dlg.hidden=true};
+  const confirm=document.createElement('button');
+  confirm.className='primary';
+  confirm.textContent='保存';
+  confirm.onclick=()=>{
+    const selected=input.value;
+    if(!validDate(selected)){alert('正しい日付を選択してください');return}
+    if(selected!==oldDate && plant.dates.some(x=>x!==entry&&x.date===selected)){
+      alert('その日付にはすでに水やり記録があります。別の日付を選択してください');return;
+    }
+    dlg.hidden=true;
+    if(selected!==oldDate){
+      entry.date=selected;
+      save({type:'moveDate',id:plant.id,from:oldDate,to:selected,kind:entry.kind});
+      render();
+    }
+  };
+  actions.append(cancel,confirm);
+  dlg.hidden=false;
+}
 function chooseKind(callback,heading='水の種類を選択'){modal(heading,[['水のみ',()=>callback('water')],['メネデール入り',()=>callback('men')],['リキダス入り',()=>callback('riki')],['キャンセル']])}
-function render(){data.forEach(normalize);let sorted=[...data].sort((a,b)=>{let x=a.dates[0]?.date||'',y=b.dates[0]?.date||'';return x.localeCompare(y)||a.name.localeCompare(b.name)});let max=Math.max(5,...data.map(p=>p.dates.length));const head=document.getElementById('head');head.replaceChildren();['植物 / 前回からの日数',...Array.from({length:max},(_,i)=>i===0?'最新':`${i+1}回前`)].forEach(t=>{let th=document.createElement('th');th.textContent=t;head.append(th)});const body=document.getElementById('body');body.replaceChildren();sorted.forEach(p=>{let tr=document.createElement('tr'),first=document.createElement('td'),name=document.createElement('div');name.className='plant';name.textContent=p.name;first.append(name);let elapsed=document.createElement('div');elapsed.className='elapsed';elapsed.textContent=p.dates.length?`前回から ${days(p.dates[0].date)} 日`:'まだ記録なし';first.append(elapsed);let acts=document.createElement('div');acts.className='actions';let plus=document.createElement('button');plus.className='add';plus.textContent='＋ 今日';plus.onclick=()=>{let t=today();if(p.dates.some(x=>x.date===t)){modal('今日はすでに記録されています。日付をタップすると種類を変更できます。',[['閉じる']]);return}chooseKind(kind=>{p.dates.push({date:t,kind});save({type:'setDate',id:p.id,date:t,kind});render()},`${p.name}：今日の水やり`)};acts.append(plus);let edit=document.createElement('button');edit.textContent='名前';edit.onclick=()=>{let v=prompt('植物名を変更',p.name);if(v?.trim()){p.name=v.trim();save({type:'rename',id:p.id,name:p.name});render()}};acts.append(edit);first.append(acts);tr.append(first);for(let i=0;i<max;i++){let td=document.createElement('td');td.className='date';let entry=p.dates[i];if(entry){let b=document.createElement('button');b.textContent=fmt(entry.date);let small=document.createElement('small');small.textContent=entry.date.slice(0,4)+'年';b.append(small);let kind=document.createElement('span');kind.className='kind '+kinds[entry.kind][1];kind.textContent=kinds[entry.kind][0];b.append(kind);b.onclick=()=>modal(`${p.name}：${entry.date}（${kinds[entry.kind][0]}）`,[['種類を変更',()=>chooseKind(k=>{entry.kind=k;save({type:'setDate',id:p.id,date:entry.date,kind:k});render()})],['日付を修正',()=>{let v=prompt('日付を入力（YYYY-MM-DD）',entry.date);if(validDate(v)){const oldDate=entry.date;entry.date=v;save({type:'moveDate',id:p.id,from:oldDate,to:v,kind:entry.kind});render()}}],['削除',()=>modal('この水やり記録を削除しますか？',[['削除する',()=>{p.dates=p.dates.filter(x=>x!==entry);save({type:'deleteDate',id:p.id,date:entry.date});render()}],['キャンセル']])],['閉じる']]);td.append(b)}else{let span=document.createElement('span');span.className='empty';span.textContent='—';td.append(span)}tr.append(td)}body.append(tr)});persistRender()}
+function render(){data.forEach(normalize);let sorted=[...data].sort((a,b)=>{let x=a.dates[0]?.date||'',y=b.dates[0]?.date||'';return x.localeCompare(y)||a.name.localeCompare(b.name)});let max=Math.max(5,...data.map(p=>p.dates.length));const head=document.getElementById('head');head.replaceChildren();['植物 / 前回からの日数',...Array.from({length:max},(_,i)=>i===0?'最新':`${i+1}回前`)].forEach(t=>{let th=document.createElement('th');th.textContent=t;head.append(th)});const body=document.getElementById('body');body.replaceChildren();sorted.forEach(p=>{let tr=document.createElement('tr'),first=document.createElement('td'),name=document.createElement('div');name.className='plant';name.textContent=p.name;first.append(name);let elapsed=document.createElement('div');elapsed.className='elapsed';elapsed.textContent=p.dates.length?`前回から ${days(p.dates[0].date)} 日`:'まだ記録なし';first.append(elapsed);let acts=document.createElement('div');acts.className='actions';let plus=document.createElement('button');plus.className='add';plus.textContent='＋ 今日';plus.onclick=()=>{let t=today();if(p.dates.some(x=>x.date===t)){modal('今日はすでに記録されています。日付をタップすると種類を変更できます。',[['閉じる']]);return}chooseKind(kind=>{p.dates.push({date:t,kind});save({type:'setDate',id:p.id,date:t,kind});render()},`${p.name}：今日の水やり`)};acts.append(plus);let edit=document.createElement('button');edit.textContent='名前';edit.onclick=()=>{let v=prompt('植物名を変更',p.name);if(v?.trim()){p.name=v.trim();save({type:'rename',id:p.id,name:p.name});render()}};acts.append(edit);first.append(acts);tr.append(first);for(let i=0;i<max;i++){let td=document.createElement('td');td.className='date';let entry=p.dates[i];if(entry){let b=document.createElement('button');b.textContent=fmt(entry.date);let small=document.createElement('small');small.textContent=entry.date.slice(0,4)+'年';b.append(small);let kind=document.createElement('span');kind.className='kind '+kinds[entry.kind][1];kind.textContent=kinds[entry.kind][0];b.append(kind);b.onclick=()=>modal(`${p.name}：${entry.date}（${kinds[entry.kind][0]}）`,[['種類を変更',()=>chooseKind(k=>{entry.kind=k;save({type:'setDate',id:p.id,date:entry.date,kind:k});render()})],['日付を修正',()=>showDatePicker(p,entry)],['削除',()=>modal('この水やり記録を削除しますか？',[['削除する',()=>{p.dates=p.dates.filter(x=>x!==entry);save({type:'deleteDate',id:p.id,date:entry.date});render()}],['キャンセル']])],['閉じる']]);td.append(b)}else{let span=document.createElement('span');span.className='empty';span.textContent='—';td.append(span)}tr.append(td)}body.append(tr)});persistRender()}
 function persistRender(){try{localStorage.setItem(key,JSON.stringify(data))}catch(e){}}
 document.getElementById('addPlant').onclick=()=>{let n=prompt('追加する植物の名前');if(n?.trim()){const plant={id:crypto.randomUUID(),name:n.trim(),dates:[]};data.push(plant);save({type:'addPlant',plant});render()}};
 document.getElementById('export').onclick=()=>{let blob=new Blob([JSON.stringify({version:2,exported:today(),plants:data},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`水やり記録_${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
