@@ -5,13 +5,17 @@ const kinds={water:['水のみ','water'],men:['メネデール','men'],riki:['�
 const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(new Date(s+'T12:00:00').getTime());
 function normalize(p){let entries=(p.dates||[]).map(x=>typeof x==='string'?{date:x,kind:'water'}:x).filter(x=>x&&validDate(x.date)).map(x=>({date:x.date,kind:kinds[x.kind]?x.kind:'water'}));let m=new Map();entries.forEach(x=>m.set(x.date,x));p.dates=[...m.values()].sort((a,b)=>b.date.localeCompare(a.date));return p}
 data.forEach(normalize);
-let syncing=false,dirty=false;const save=()=>{try{localStorage.setItem(key,JSON.stringify(data));dirty=true;localStorage.setItem('watering-dirty','1');scheduleSync()}catch(e){console.warn("保存できません",e)}};const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};const days=s=>Math.floor((new Date(today()+'T12:00:00')-new Date(s+'T12:00:00'))/86400000);const fmt=s=>{let [y,m,d]=s.split('-');return `${Number(m)}/${Number(d)}`};const dlg=document.getElementById('dialog');function modal(message,buttons){document.getElementById('modalText').textContent=message;const a=document.getElementById('modalActions');a.replaceChildren();buttons.forEach(([label,fn])=>{let b=document.createElement('button');b.textContent=label;b.onclick=()=>{dlg.hidden=true;if(fn)fn()};a.append(b)});dlg.hidden=false}
+let syncing=false;const opsKey='watering-pending-ops-v2';
+let pendingOps=[];try{pendingOps=JSON.parse(localStorage.getItem(opsKey)||'[]');if(!Array.isArray(pendingOps))pendingOps=[]}catch(e){pendingOps=[]}
+function persistOps(){localStorage.setItem(opsKey,JSON.stringify(pendingOps));if(pendingOps.length)localStorage.setItem('watering-dirty','1');else localStorage.removeItem('watering-dirty')}
+function save(op){try{localStorage.setItem(key,JSON.stringify(data));if(op){pendingOps.push(op);persistOps()}scheduleSync()}catch(e){console.warn('保存できません',e)}};
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};const days=s=>Math.floor((new Date(today()+'T12:00:00')-new Date(s+'T12:00:00'))/86400000);const fmt=s=>{let [y,m,d]=s.split('-');return `${Number(m)}/${Number(d)}`};const dlg=document.getElementById('dialog');function modal(message,buttons){document.getElementById('modalText').textContent=message;const a=document.getElementById('modalActions');a.replaceChildren();buttons.forEach(([label,fn])=>{let b=document.createElement('button');b.textContent=label;b.onclick=()=>{dlg.hidden=true;if(fn)fn()};a.append(b)});dlg.hidden=false}
 function chooseKind(callback,heading='水の種類を選択'){modal(heading,[['水のみ',()=>callback('water')],['メネデール入り',()=>callback('men')],['リキダス入り',()=>callback('riki')],['キャンセル']])}
-function render(){data.forEach(normalize);let sorted=[...data].sort((a,b)=>{let x=a.dates[0]?.date||'',y=b.dates[0]?.date||'';return x.localeCompare(y)||a.name.localeCompare(b.name)});let max=Math.max(5,...data.map(p=>p.dates.length));const head=document.getElementById('head');head.replaceChildren();['植物 / 前回からの日数',...Array.from({length:max},(_,i)=>i===0?'最新':`${i+1}回前`)].forEach(t=>{let th=document.createElement('th');th.textContent=t;head.append(th)});const body=document.getElementById('body');body.replaceChildren();sorted.forEach(p=>{let tr=document.createElement('tr'),first=document.createElement('td'),name=document.createElement('div');name.className='plant';name.textContent=p.name;first.append(name);let elapsed=document.createElement('div');elapsed.className='elapsed';elapsed.textContent=p.dates.length?`前回から ${days(p.dates[0].date)} 日`:'まだ記録なし';first.append(elapsed);let acts=document.createElement('div');acts.className='actions';let plus=document.createElement('button');plus.className='add';plus.textContent='＋ 今日';plus.onclick=()=>{let t=today();if(p.dates.some(x=>x.date===t)){modal('今日はすでに記録されています。日付をタップすると種類を変更できます。',[['閉じる']]);return}chooseKind(kind=>{p.dates.push({date:t,kind});save();render()},`${p.name}：今日の水やり`)};acts.append(plus);let edit=document.createElement('button');edit.textContent='名前';edit.onclick=()=>{let v=prompt('植物名を変更',p.name);if(v?.trim()){p.name=v.trim();save();render()}};acts.append(edit);first.append(acts);tr.append(first);for(let i=0;i<max;i++){let td=document.createElement('td');td.className='date';let entry=p.dates[i];if(entry){let b=document.createElement('button');b.textContent=fmt(entry.date);let small=document.createElement('small');small.textContent=entry.date.slice(0,4)+'年';b.append(small);let kind=document.createElement('span');kind.className='kind '+kinds[entry.kind][1];kind.textContent=kinds[entry.kind][0];b.append(kind);b.onclick=()=>modal(`${p.name}：${entry.date}（${kinds[entry.kind][0]}）`,[['種類を変更',()=>chooseKind(k=>{entry.kind=k;save();render()})],['日付を修正',()=>{let v=prompt('日付を入力（YYYY-MM-DD）',entry.date);if(validDate(v)){entry.date=v;save();render()}}],['削除',()=>modal('この水やり記録を削除しますか？',[['削除する',()=>{p.dates=p.dates.filter(x=>x!==entry);save();render()}],['キャンセル']])],['閉じる']]);td.append(b)}else{let span=document.createElement('span');span.className='empty';span.textContent='—';td.append(span)}tr.append(td)}body.append(tr)});persistRender()}
+function render(){data.forEach(normalize);let sorted=[...data].sort((a,b)=>{let x=a.dates[0]?.date||'',y=b.dates[0]?.date||'';return x.localeCompare(y)||a.name.localeCompare(b.name)});let max=Math.max(5,...data.map(p=>p.dates.length));const head=document.getElementById('head');head.replaceChildren();['植物 / 前回からの日数',...Array.from({length:max},(_,i)=>i===0?'最新':`${i+1}回前`)].forEach(t=>{let th=document.createElement('th');th.textContent=t;head.append(th)});const body=document.getElementById('body');body.replaceChildren();sorted.forEach(p=>{let tr=document.createElement('tr'),first=document.createElement('td'),name=document.createElement('div');name.className='plant';name.textContent=p.name;first.append(name);let elapsed=document.createElement('div');elapsed.className='elapsed';elapsed.textContent=p.dates.length?`前回から ${days(p.dates[0].date)} 日`:'まだ記録なし';first.append(elapsed);let acts=document.createElement('div');acts.className='actions';let plus=document.createElement('button');plus.className='add';plus.textContent='＋ 今日';plus.onclick=()=>{let t=today();if(p.dates.some(x=>x.date===t)){modal('今日はすでに記録されています。日付をタップすると種類を変更できます。',[['閉じる']]);return}chooseKind(kind=>{p.dates.push({date:t,kind});save({type:'setDate',id:p.id,date:t,kind});render()},`${p.name}：今日の水やり`)};acts.append(plus);let edit=document.createElement('button');edit.textContent='名前';edit.onclick=()=>{let v=prompt('植物名を変更',p.name);if(v?.trim()){p.name=v.trim();save({type:'rename',id:p.id,name:p.name});render()}};acts.append(edit);first.append(acts);tr.append(first);for(let i=0;i<max;i++){let td=document.createElement('td');td.className='date';let entry=p.dates[i];if(entry){let b=document.createElement('button');b.textContent=fmt(entry.date);let small=document.createElement('small');small.textContent=entry.date.slice(0,4)+'年';b.append(small);let kind=document.createElement('span');kind.className='kind '+kinds[entry.kind][1];kind.textContent=kinds[entry.kind][0];b.append(kind);b.onclick=()=>modal(`${p.name}：${entry.date}（${kinds[entry.kind][0]}）`,[['種類を変更',()=>chooseKind(k=>{entry.kind=k;save({type:'setDate',id:p.id,date:entry.date,kind:k});render()})],['日付を修正',()=>{let v=prompt('日付を入力（YYYY-MM-DD）',entry.date);if(validDate(v)){const oldDate=entry.date;entry.date=v;save({type:'moveDate',id:p.id,from:oldDate,to:v,kind:entry.kind});render()}}],['削除',()=>modal('この水やり記録を削除しますか？',[['削除する',()=>{p.dates=p.dates.filter(x=>x!==entry);save({type:'deleteDate',id:p.id,date:entry.date});render()}],['キャンセル']])],['閉じる']]);td.append(b)}else{let span=document.createElement('span');span.className='empty';span.textContent='—';td.append(span)}tr.append(td)}body.append(tr)});persistRender()}
 function persistRender(){try{localStorage.setItem(key,JSON.stringify(data))}catch(e){}}
-document.getElementById('addPlant').onclick=()=>{let n=prompt('追加する植物の名前');if(n?.trim()){data.push({id:Date.now(),name:n.trim(),dates:[]});save();render()}};
+document.getElementById('addPlant').onclick=()=>{let n=prompt('追加する植物の名前');if(n?.trim()){const plant={id:crypto.randomUUID(),name:n.trim(),dates:[]};data.push(plant);save({type:'addPlant',plant});render()}};
 document.getElementById('export').onclick=()=>{let blob=new Blob([JSON.stringify({version:2,exported:today(),plants:data},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`水やり記録_${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
-document.getElementById('import').onclick=()=>document.getElementById('file').click();document.getElementById('file').onchange=async e=>{try{let parsed=JSON.parse(await e.target.files[0].text());let list=parsed.plants;if(!Array.isArray(list)||!list.every(x=>typeof x.name==='string'&&Array.isArray(x.dates)&&x.dates.every(d=>validDate(typeof d==='string'?d:d?.date))))throw Error('形式が正しくありません');modal('現在の記録をバックアップの内容で置き換えますか？',[['読み込む',()=>{data=list.map(normalize);save();render()}],['キャンセル']])}catch(err){alert('読み込めませんでした: '+err.message)}e.target.value=''};render();
+document.getElementById('import').onclick=()=>document.getElementById('file').click();document.getElementById('file').onchange=async e=>{try{let parsed=JSON.parse(await e.target.files[0].text());let list=parsed.plants;if(!Array.isArray(list)||!list.every(x=>typeof x.name==='string'&&Array.isArray(x.dates)&&x.dates.every(d=>validDate(typeof d==='string'?d:d?.date))))throw Error('形式が正しくありません');modal('現在の記録をバックアップの内容で置き換えますか？',[['読み込む',()=>{data=list.map(normalize);save({type:'replaceAll',plants:structuredClone(data)});render()}],['キャンセル']])}catch(err){alert('読み込めませんでした: '+err.message)}e.target.value=''};render();
 const API='https://api.dropboxapi.com/2',CONTENT='https://content.dropboxapi.com/2';
 const cfgKey='watering-dropbox-config';let cfg=JSON.parse(localStorage.getItem(cfgKey)||'{}');
 const appInput=document.getElementById('appKey'),pathInput=document.getElementById('remotePath'),statusEl=document.getElementById('syncStatus');
@@ -31,8 +35,71 @@ async function accessToken(){if(!auth?.refresh_token)throw Error('Dropboxに未�
 async function dbFetch(url,headers,body){const token=await accessToken();return fetch(url,{method:'POST',headers:{Authorization:'Bearer '+token,...headers},body})}
 async function downloadRemote(){const r=await dbFetch(CONTENT+'/files/download',{'Dropbox-API-Arg':JSON.stringify({path:cfg.path})});if(r.status===409){const err=await r.text();if(err.includes('not_found'))return null;throw Error('共有ファイルが見つかりません。パスと共有フォルダの権限を確認してください: '+err.slice(0,130))}if(!r.ok)throw Error('読込 HTTP '+r.status);const meta=JSON.parse(r.headers.get('Dropbox-API-Result')||'{}');const payload=await r.json();if(!Array.isArray(payload.plants))throw Error('共有ファイルの形式が不正です');return {rev:meta.rev,plants:payload.plants.map(normalize)}}
 async function uploadRemote(plants,rev){const mode=rev?{'.tag':'update',update:rev}:'add';const r=await dbFetch(CONTENT+'/files/upload',{'Content-Type':'application/octet-stream','Dropbox-API-Arg':JSON.stringify({path:cfg.path,mode,autorename:false,mute:true})},JSON.stringify({version:3,updated:new Date().toISOString(),plants}));if(!r.ok){const err=await r.text();if(r.status===409)throw Object.assign(Error('conflict'),{conflict:true});throw Error('保存 HTTP '+r.status+': '+err.slice(0,130))}return r.json()}
-function merge(local,remote){const byId=new Map(remote.map(p=>[String(p.id),structuredClone(p)]));for(const p of local){const id=String(p.id);if(!byId.has(id)){byId.set(id,structuredClone(p));continue}const q=byId.get(id);const dates=new Map(q.dates.map(e=>[e.date,e]));p.dates.forEach(e=>dates.set(e.date,e));q.dates=[...dates.values()];q.name=p.name}return [...byId.values()].map(normalize)}
-async function syncDropbox(){if(syncing||!auth?.refresh_token||!cfg.appKey)return;syncing=true;setStatus('Dropboxと同期中…');try{let remote=await downloadRemote();let localChanged=localStorage.getItem('watering-dirty')==='1';if(!remote){await uploadRemote(data,null);localChanged=false}else if(localChanged){let combined=merge(data,remote.plants);try{await uploadRemote(combined,remote.rev)}catch(e){if(!e.conflict)throw e;remote=await downloadRemote();combined=merge(combined,remote.plants);await uploadRemote(combined,remote.rev)}data=combined}else{data=remote.plants}data.forEach(normalize);localStorage.setItem(key,JSON.stringify(data));localStorage.removeItem('watering-dirty');render();setStatus('Dropbox同期済み：'+new Date().toLocaleTimeString('ja-JP'))}catch(e){setStatus('同期エラー：'+e.message)}finally{syncing=false}}
+function applyOps(base,ops){
+  let result=structuredClone(base);
+  for(const op of ops){
+    if(op.type==='replaceAll'){result=structuredClone(op.plants);continue}
+    let p=result.find(x=>String(x.id)===String(op.id));
+    if(op.type==='addPlant'){
+      if(!result.some(x=>String(x.id)===String(op.plant.id)))result.push(structuredClone(op.plant));
+      continue;
+    }
+    if(!p)continue;
+    if(op.type==='rename')p.name=op.name;
+    if(op.type==='setDate'){
+      p.dates=p.dates.filter(x=>x.date!==op.date);
+      p.dates.push({date:op.date,kind:op.kind});
+    }
+    if(op.type==='deleteDate')p.dates=p.dates.filter(x=>x.date!==op.date);
+    if(op.type==='moveDate'){
+      p.dates=p.dates.filter(x=>x.date!==op.from&&x.date!==op.to);
+      p.dates.push({date:op.to,kind:op.kind});
+    }
+  }
+  return result.map(normalize);
+}
+// Migration: old versions only tracked a dirty flag, not individual edits.
+function mergeLegacy(local,remote){
+  const byId=new Map(remote.map(p=>[String(p.id),structuredClone(p)]));
+  for(const p of local){const id=String(p.id);if(!byId.has(id)){byId.set(id,structuredClone(p));continue}
+    const q=byId.get(id),dates=new Map(q.dates.map(e=>[e.date,e]));
+    p.dates.forEach(e=>dates.set(e.date,e));q.dates=[...dates.values()];q.name=p.name;
+  }
+  return [...byId.values()].map(normalize);
+}
+async function syncDropbox(){
+  if(syncing||!auth?.refresh_token||!cfg.appKey)return;
+  syncing=true;setStatus('Dropboxと同期中…');
+  // Snapshot: new edits made while awaiting Dropbox must not be discarded.
+  const snapshot=pendingOps.slice();
+  const legacyDirty=localStorage.getItem('watering-dirty')==='1'&&!snapshot.length;
+  const legacyData=legacyDirty?structuredClone(data):null;
+  try{
+    let completed=false,latest;
+    for(let attempt=0;attempt<5;attempt++){
+      const remote=await downloadRemote();
+      let combined=remote?remote.plants:[];
+      if(legacyDirty)combined=mergeLegacy(legacyData,combined);
+      combined=applyOps(combined,snapshot);
+      // If the file does not yet exist, initialize it from the local list.
+      if(!remote&&!snapshot.length&&!legacyDirty)combined=structuredClone(data);
+      if(!remote||snapshot.length||legacyDirty){
+        try{await uploadRemote(combined,remote?.rev||null)}
+        catch(e){if(e.conflict)continue;throw e}
+      }
+      latest=combined;completed=true;break;
+    }
+    if(!completed)throw Error('同時更新が続いています。少し待って再同期してください');
+    // Remove only operations successfully uploaded; preserve edits made during sync.
+    pendingOps.splice(0,snapshot.length);
+    persistOps();
+    data=applyOps(latest,pendingOps);
+    localStorage.setItem(key,JSON.stringify(data));
+    render();
+    setStatus('Dropbox同期済み：'+new Date().toLocaleTimeString('ja-JP')+(pendingOps.length?'（未送信の変更あり）':''));
+  }catch(e){setStatus('同期エラー：'+e.message)}
+  finally{syncing=false;if(pendingOps.length)scheduleSync()}
+}
 document.getElementById('connect').onclick=connect;
 document.getElementById('saveSettings').onclick=()=>{cfg={appKey:appInput.value.trim(),path:pathInput.value.trim()};localStorage.setItem(cfgKey,JSON.stringify(cfg));setStatus('設定を保存しました')};
 document.getElementById('syncNow').onclick=syncDropbox;
