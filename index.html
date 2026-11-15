@@ -1,4 +1,4 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>植物の水やり記録</title><style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#101b17;color:#eaf2e9;font-family:system-ui,'Noto Sans JP',sans-serif}header{padding:20px 18px 12px}h1{font-size:23px;margin:0 0 7px}p{margin:0;color:#a6b8ac;font-size:13px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px}button{border:1px solid #476153;background:#263e32;color:#eff9ed;border-radius:10px;padding:9px 12px;font-size:14px;cursor:pointer}button.primary{background:#70b98c;color:#102218;border:0;font-weight:700}.wrap{overflow:auto;margin:0 12px;border:1px solid #3a5042;border-radius:12px;max-height:70vh}table{border-collapse:separate;border-spacing:0;white-space:nowrap;width:max-content;min-width:100%}th,td{border-bottom:1px solid #304638;padding:11px 10px;text-align:center;font-size:13px}thead th{background:#21392c;position:sticky;top:0;z-index:2}th:first-child,td:first-child{position:sticky;left:0;z-index:3;background:#1c3026;text-align:left;min-width:175px;max-width:175px;white-space:normal}thead th:first-child{z-index:4;background:#21392c}td.date{min-width:96px;font-variant-numeric:tabular-nums}td.date button{background:transparent;border:0;padding:5px;color:#d8eadd}td.date .kind{display:block;font-size:10px;font-weight:700;margin-top:3px}.kind.water{color:#8fc9ff}.kind.men{color:#c77b57}.kind.riki{color:#ffe066}td.date small{display:block;color:#90a99a;font-size:10px}.plant{font-weight:650;font-size:13px;line-height:1.4}.elapsed{font-size:11px;color:#a4baa9;margin-top:4px}.add{font-weight:700;color:#a5e7ba;background:#294c37;border-color:#507b5d}.actions{display:flex;gap:5px;margin-top:7px}.actions button{padding:5px 9px;font-size:12px}.empty{color:#607a6a}.note{padding:12px 18px 25px;font-size:12px;color:#93a89a}.overlay{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:100;padding:18px}.overlay[hidden]{display:none}.dialogbox{border:1px solid #54705b;background:#203629;color:white;border-radius:14px;padding:22px;width:min(100%,480px)}input{padding:10px;border-radius:8px;background:#12251b;border:1px solid #587260;color:white;font-size:16px;max-width:100%}.modal-actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}#file{display:none} .syncbar{margin:0 18px 12px;padding:12px;border:1px solid #476153;border-radius:12px;background:#1c3026;font-size:13px}.syncbar input{width:100%;margin:6px 0 10px}.syncbar .status{color:#b6d6be;margin-bottom:8px}.syncbar button{margin:3px}.syncbar summary{cursor:pointer;color:#a5e7ba}.syncbar small{color:#a6b8ac;display:block;line-height:1.6;margin:6px 0} </style></head><body><header><h1>🌿 水やり記録</h1><p>水やり日が古い順に表示。＋ 今日で水の種類を選んで記録します。</p></header><div class="toolbar"><button id="export">バックアップ保存</button><button id="import">バックアップ読込</button><button id="addPlant">＋ 植物を追加</button><input id="file" type="file" accept="application/json"></div><section class="syncbar"><div class="status" id="syncStatus">Dropbox未接続（端末内の記録を使用中）</div><button id="connect">Dropboxに接続</button><button id="syncNow">今すぐ同期</button><button id="disconnect">接続解除</button><details><summary>Dropbox同期の設定</summary><small>お二人とも同じDropbox共有フォルダを使い、各自のアカウントでログインしてください。共有フォルダのパスはそれぞれのDropbox内で確認してください。例：/植物共有/watering.json。初回接続前にバックアップを保存してください。</small><label>Dropbox App key（公開情報・シークレットは入力しない）</label><input id="appKey" placeholder="App key" autocomplete="off"><label>共有ファイルのパス</label><input id="remotePath" value="/植物共有/watering.json" autocomplete="off"><button id="saveSettings">設定を保存</button></details></section><div class="wrap"><table><thead><tr id="head"><th>植物 / 前回からの日数</th></tr></thead><tbody id="body"></tbody></table></div><div class="note">記録は端末内にも保存されます。Dropbox接続中は共有ファイルと同期します。ブラウザのデータ削除や端末変更に備えて、時々バックアップしてください。日付をタップすると修正・削除できます。</div><div id="dialog" class="overlay" hidden><div class="dialogbox" role="dialog" aria-modal="true"><div id="modalText"></div><div class="modal-actions" id="modalActions"></div></div></div><script>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>植物の水やり記録</title><style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#101b17;color:#eaf2e9;font-family:system-ui,'Noto Sans JP',sans-serif}header{padding:20px 18px 12px}h1{font-size:23px;margin:0 0 7px}p{margin:0;color:#a6b8ac;font-size:13px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px}button{border:1px solid #476153;background:#263e32;color:#eff9ed;border-radius:10px;padding:9px 12px;font-size:14px;cursor:pointer}button.primary{background:#70b98c;color:#102218;border:0;font-weight:700}.wrap{overflow:auto;margin:0 12px;border:1px solid #3a5042;border-radius:12px;max-height:70vh}table{border-collapse:separate;border-spacing:0;white-space:nowrap;width:max-content;min-width:100%}th,td{border-bottom:1px solid #304638;padding:11px 10px;text-align:center;font-size:13px}thead th{background:#21392c;position:sticky;top:0;z-index:2}th:first-child,td:first-child{position:sticky;left:0;z-index:3;background:#1c3026;text-align:left;min-width:175px;max-width:175px;white-space:normal}thead th:first-child{z-index:4;background:#21392c}td.date{min-width:96px;font-variant-numeric:tabular-nums}td.date button{background:transparent;border:0;padding:5px;color:#d8eadd}td.date .kind{display:block;font-size:10px;font-weight:700;margin-top:3px}.kind.water{color:#8fc9ff}.kind.men{color:#c77b57}.kind.riki{color:#ffe066}td.date small{display:block;color:#90a99a;font-size:10px}.plant{font-weight:650;font-size:13px;line-height:1.4}.elapsed{font-size:11px;color:#a4baa9;margin-top:4px}.add{font-weight:700;color:#a5e7ba;background:#294c37;border-color:#507b5d}.actions{display:flex;gap:5px;margin-top:7px}.actions button{padding:5px 9px;font-size:12px}.empty{color:#607a6a}.note{padding:12px 18px 25px;font-size:12px;color:#93a89a}.overlay{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:100;padding:18px}.overlay[hidden]{display:none}.dialogbox{border:1px solid #54705b;background:#203629;color:white;border-radius:14px;padding:22px;width:min(100%,480px)}input{padding:10px;border-radius:8px;background:#12251b;border:1px solid #587260;color:white;font-size:16px;max-width:100%}.modal-actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}#file{display:none} .syncbar{margin:0 18px 12px;padding:12px;border:1px solid #476153;border-radius:12px;background:#1c3026;font-size:13px}.syncbar input{width:100%;margin:6px 0 10px}.syncbar .status{color:#b6d6be;margin-bottom:8px}.syncbar button{margin:3px}.syncbar summary{cursor:pointer;color:#a5e7ba}.syncbar small{color:#a6b8ac;display:block;line-height:1.6;margin:6px 0} .calendar-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.calendar-nav button{font-size:24px;padding:3px 15px}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}.calendar-weekday{text-align:center;font-size:12px;color:#b6cbb9;padding:8px 0}.calendar-day{min-width:0;padding:10px 0;border:1px solid transparent;background:transparent;border-radius:50%;font-size:14px}.calendar-day.original:not(.selected){border-color:#87a993}.calendar-day.selected{background:#70b98c;color:#102218;font-weight:800}.calendar-selected{text-align:center;color:#b6d6be;font-size:13px;margin-top:12px}</style></head><body><header><h1>🌿 水やり記録</h1><p>水やり日が古い順に表示。＋ 今日で水の種類を選んで記録します。</p></header><div class="toolbar"><button id="export">バックアップ保存</button><button id="import">バックアップ読込</button><button id="addPlant">＋ 植物を追加</button><input id="file" type="file" accept="application/json"></div><section class="syncbar"><div class="status" id="syncStatus">Dropbox未接続（端末内の記録を使用中）</div><button id="connect">Dropboxに接続</button><button id="syncNow">今すぐ同期</button><button id="disconnect">接続解除</button><details><summary>Dropbox同期の設定</summary><small>お二人とも同じDropbox共有フォルダを使い、各自のアカウントでログインしてください。共有フォルダのパスはそれぞれのDropbox内で確認してください。例：/植物共有/watering.json。初回接続前にバックアップを保存してください。</small><label>Dropbox App key（公開情報・シークレットは入力しない）</label><input id="appKey" placeholder="App key" autocomplete="off"><label>共有ファイルのパス</label><input id="remotePath" value="/植物共有/watering.json" autocomplete="off"><button id="saveSettings">設定を保存</button></details></section><div class="wrap"><table><thead><tr id="head"><th>植物 / 前回からの日数</th></tr></thead><tbody id="body"></tbody></table></div><div class="note">記録は端末内にも保存されます。Dropbox接続中は共有ファイルと同期します。ブラウザのデータ削除や端末変更に備えて、時々バックアップしてください。日付をタップすると修正・削除できます。</div><div id="dialog" class="overlay" hidden><div class="dialogbox" role="dialog" aria-modal="true"><div id="modalText"></div><div class="modal-actions" id="modalActions"></div></div></div><script>
 const initial=['ドラセナ・カンボジアーナ','サンセベリア・ファーンウッド','ドラセナ・コンパクタ','モンステラ・タイコンステレーション','ジュエルオーキッド・マコデス・ペトラ','ユーフォルビア・オンコクラータ（綴化）','ドラセナ・コンシンネ','アデニウム・アラビカム','アデニウム・モンスター','ソフォラ・リトルベイビー','フィカス・パンダガジュマル','サボテン・金晃丸','ガジュマル','シンニンギア'];
 const key='watering-history-v1';let data;try{data=JSON.parse(localStorage.getItem(key))}catch(e){}if(!Array.isArray(data))data=initial.map((name,i)=>({id:i+1,name,dates:[]}));
 const kinds={water:['水のみ','water'],men:['メネデール','men'],riki:['リキダス','riki']};
@@ -12,50 +12,61 @@ function save(op){try{localStorage.setItem(key,JSON.stringify(data));if(op){pend
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};const days=s=>Math.floor((new Date(today()+'T12:00:00')-new Date(s+'T12:00:00'))/86400000);const fmt=s=>{let [y,m,d]=s.split('-');return `${Number(m)}/${Number(d)}`};const dlg=document.getElementById('dialog');function modal(message,buttons){document.getElementById('modalText').textContent=message;const a=document.getElementById('modalActions');a.replaceChildren();buttons.forEach(([label,fn])=>{let b=document.createElement('button');b.textContent=label;b.onclick=()=>{dlg.hidden=true;if(fn)fn()};a.append(b)});dlg.hidden=false}
 function showDatePicker(plant,entry){
   const oldDate=entry.date;
+  let selected=oldDate;
+  let [year,month]=oldDate.split('-').map(Number);
   const area=document.getElementById('modalText');
   area.replaceChildren();
   const heading=document.createElement('div');
   heading.textContent=`${plant.name}：日付を修正`;
-  heading.style.marginBottom='12px';
-  const input=document.createElement('input');
-  input.type='date';
-  input.value=oldDate;
-  input.required=true;
-  input.setAttribute('aria-label','水やりの日付');
-  input.style.width='100%';
-  area.append(heading,input);
-  const actions=document.getElementById('modalActions');
-  actions.replaceChildren();
-  const cancel=document.createElement('button');
-  cancel.textContent='キャンセル';
-  cancel.onclick=()=>{dlg.hidden=true};
-  const confirm=document.createElement('button');
-  confirm.className='primary';
-  confirm.textContent='保存';
+  heading.style.marginBottom='14px';
+  const nav=document.createElement('div');
+  nav.className='calendar-nav';
+  const previous=document.createElement('button');previous.textContent='‹';previous.setAttribute('aria-label','前の月');
+  const monthLabel=document.createElement('strong');
+  const next=document.createElement('button');next.textContent='›';next.setAttribute('aria-label','次の月');
+  nav.append(previous,monthLabel,next);
+  const calendar=document.createElement('div');calendar.className='calendar-grid';
+  const chosen=document.createElement('div');chosen.className='calendar-selected';
+  area.append(heading,nav,calendar,chosen);
+  const pad=n=>String(n).padStart(2,'0');
+  function draw(){
+    monthLabel.textContent=`${year}年${month}月`;
+    calendar.replaceChildren();
+    for(const d of ['日','月','火','水','木','金','土']){
+      const el=document.createElement('span');el.className='calendar-weekday';el.textContent=d;calendar.append(el);
+    }
+    const first=new Date(year,month-1,1).getDay();
+    const count=new Date(year,month,0).getDate();
+    for(let i=0;i<first;i++)calendar.append(document.createElement('span'));
+    for(let day=1;day<=count;day++){
+      const date=`${year}-${pad(month)}-${pad(day)}`;
+      const cell=document.createElement('button');cell.type='button';cell.textContent=day;
+      cell.className='calendar-day'+(date===selected?' selected':'')+(date===oldDate?' original':'');
+      cell.setAttribute('aria-label',`${year}年${month}月${day}日`);
+      cell.setAttribute('aria-pressed',String(date===selected));
+      cell.onclick=()=>{selected=date;draw()};calendar.append(cell);
+    }
+    chosen.textContent=`選択中：${selected.replace(/-/g,'/')}`;
+  }
+  function shift(delta){const d=new Date(year,month-1+delta,1);year=d.getFullYear();month=d.getMonth()+1;draw()}
+  previous.onclick=()=>shift(-1);next.onclick=()=>shift(1);
+  const actions=document.getElementById('modalActions');actions.replaceChildren();
+  const cancel=document.createElement('button');cancel.textContent='キャンセル';cancel.onclick=()=>{dlg.hidden=true};
+  const confirm=document.createElement('button');confirm.className='primary';confirm.textContent='保存';
   confirm.onclick=()=>{
-    const selected=input.value;
-    if(!validDate(selected)){alert('正しい日付を選択してください');return}
-    if(selected!==oldDate && plant.dates.some(x=>x!==entry&&x.date===selected)){
+    if(selected===oldDate){dlg.hidden=true;return}
+    const currentPlant=data.find(p=>String(p.id)===String(plant.id));
+    const currentEntry=currentPlant?.dates.find(x=>x.date===oldDate);
+    if(!currentEntry){alert('同期によって元の記録が変更されました。画面を確認してやり直してください。');dlg.hidden=true;render();return}
+    if(currentPlant.dates.some(x=>x!==currentEntry&&x.date===selected)){
       alert('その日付にはすでに水やり記録があります。別の日付を選択してください');return;
     }
-    dlg.hidden=true;
-    if(selected!==oldDate){
-      entry.date=selected;
-      save({type:'moveDate',id:plant.id,from:oldDate,to:selected,kind:entry.kind});
-      render();
-    }
+    const kind=currentEntry.kind;
+    currentEntry.date=selected;
+    save({type:'moveDate',id:currentPlant.id,from:oldDate,to:selected,kind});
+    dlg.hidden=true;render();
   };
-  actions.append(cancel,confirm);
-  dlg.hidden=false;
-  // Open the native calendar directly while still handling the user's tap.
-  // The existing date is already assigned to input.value above.
-  try {
-    if (typeof input.showPicker === 'function') input.showPicker();
-    else input.focus();
-  } catch (error) {
-    // Browsers without programmatic picker support keep the visible date field.
-    input.focus();
-  }
+  actions.append(cancel,confirm);dlg.hidden=false;draw();
 }
 function chooseKind(callback,heading='水の種類を選択'){modal(heading,[['水のみ',()=>callback('water')],['メネデール入り',()=>callback('men')],['リキダス入り',()=>callback('riki')],['キャンセル']])}
 function render(){data.forEach(normalize);let sorted=[...data].sort((a,b)=>{let x=a.dates[0]?.date||'',y=b.dates[0]?.date||'';return x.localeCompare(y)||a.name.localeCompare(b.name)});let max=Math.max(5,...data.map(p=>p.dates.length));const head=document.getElementById('head');head.replaceChildren();['植物 / 前回からの日数',...Array.from({length:max},(_,i)=>i===0?'最新':`${i+1}回前`)].forEach(t=>{let th=document.createElement('th');th.textContent=t;head.append(th)});const body=document.getElementById('body');body.replaceChildren();sorted.forEach(p=>{let tr=document.createElement('tr'),first=document.createElement('td'),name=document.createElement('div');name.className='plant';name.textContent=p.name;first.append(name);let elapsed=document.createElement('div');elapsed.className='elapsed';elapsed.textContent=p.dates.length?`前回から ${days(p.dates[0].date)} 日`:'まだ記録なし';first.append(elapsed);let acts=document.createElement('div');acts.className='actions';let plus=document.createElement('button');plus.className='add';plus.textContent='＋ 今日';plus.onclick=()=>{let t=today();if(p.dates.some(x=>x.date===t)){modal('今日はすでに記録されています。日付をタップすると種類を変更できます。',[['閉じる']]);return}chooseKind(kind=>{p.dates.push({date:t,kind});save({type:'setDate',id:p.id,date:t,kind});render()},`${p.name}：今日の水やり`)};acts.append(plus);let edit=document.createElement('button');edit.textContent='名前';edit.onclick=()=>{let v=prompt('植物名を変更',p.name);if(v?.trim()){p.name=v.trim();save({type:'rename',id:p.id,name:p.name});render()}};acts.append(edit);first.append(acts);tr.append(first);for(let i=0;i<max;i++){let td=document.createElement('td');td.className='date';let entry=p.dates[i];if(entry){let b=document.createElement('button');b.textContent=fmt(entry.date);let small=document.createElement('small');small.textContent=entry.date.slice(0,4)+'年';b.append(small);let kind=document.createElement('span');kind.className='kind '+kinds[entry.kind][1];kind.textContent=kinds[entry.kind][0];b.append(kind);b.onclick=()=>modal(`${p.name}：${entry.date}（${kinds[entry.kind][0]}）`,[['種類を変更',()=>chooseKind(k=>{entry.kind=k;save({type:'setDate',id:p.id,date:entry.date,kind:k});render()})],['日付を修正',()=>showDatePicker(p,entry)],['削除',()=>modal('この水やり記録を削除しますか？',[['削除する',()=>{p.dates=p.dates.filter(x=>x!==entry);save({type:'deleteDate',id:p.id,date:entry.date});render()}],['キャンセル']])],['閉じる']]);td.append(b)}else{let span=document.createElement('span');span.className='empty';span.textContent='—';td.append(span)}tr.append(td)}body.append(tr)});persistRender()}
